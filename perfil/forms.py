@@ -56,7 +56,7 @@ class UserForm(forms.ModelForm):
         validation_error_msgs['username'] = error_msg_user_exists
       
       if email_db:
-        if email_data and email_data != email_db:
+        if email_data != email_db:
           validation_error_msgs['email'] = error_msg_email_exists
 
       if password_data: 
