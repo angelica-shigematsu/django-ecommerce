@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
-from django.views.generic import ListView
+from django.urls import reverse
+from django.views.generic import ListView, DetailView
 from django.views import View
 from django.contrib import messages
 from produto.models import Varicao
@@ -8,9 +9,31 @@ from utils import utils
 from django.http import HttpResponse
 # Create your views here.
 
-class Pagar(View):
-  template_name = 'pedido/pagar.html'
+class DispatchLoginRequiredMixin(View):
+  def dispatch(self, *args, **kwargs):
+    if not self.request.user.is_authenticated:
+      return redirect('perfil:criar')
+    
+    return super().dispatch(*args, **kwargs)
+  
+  def get_queryset(self, *args, **kwargs):
+    qs = super().get_queryset(*args, **kwargs)
+    qs = qs.filter(usuario=self.request.user)
+    return qs
 
+class Pagar(DispatchLoginRequiredMixin, DetailView):
+  template_name = 'pedido/pagar.html'
+  model = models.Pedido
+  pk_url_kwarg = 'pk'
+  context_object_name = 'pedido'
+
+  # def get_queryset(self, *args, **kwargs):
+  #   qs = super().get_queryset(*args, **kwargs)
+  #   qs = qs.filter(usuario=self.request.user)
+  #   return qs
+
+class SalvarPedido(View):
+  #template_name = 'pedido/pagar.html'
   def get(self, *args, **kwargs):
     if not self.request.user.is_authenticated:
       messages.error(
@@ -61,7 +84,7 @@ class Pagar(View):
         return redirect('produto:carrinho')
         
     qtd_total_carrinho = utils.cart_total_qtd(carrinho)
-    valor_total_carrinho = utils.cart_total_qtd(carrinho)    
+    valor_total_carrinho = utils.cart_totals(carrinho)    
     
     pedido = models.Pedido(
       usuario=self.request.user,
@@ -101,14 +124,23 @@ class Pagar(View):
     #   contexto
     # )
 
-    return redirect('pedido:lista')
+    return redirect(
+      reverse(
+        'pedido:pagar',
+        kwargs={
+          'pk': pedido.pk
+        })
+      )
 
-class SalvarPedido(View):
-  pass
+class Detalhe(DispatchLoginRequiredMixin, DetailView):
+  model = models.Pedido
+  context_object_name = 'pedido'
+  template_name = 'pedido/detalhe.html'
+  pk_url_kwarg = 'pk'
 
-class Detalhe(View):
-  pass
-
-class Lista(View):
-  def get(self, *args, **kwargs):
-    return HttpResponse('LIsta')
+class Lista(DispatchLoginRequiredMixin, ListView):
+  model = models.Pedido
+  context_object_name = 'pedidos'
+  template_name = 'pedido/lista.html'
+  paginate_by = 10
+  ordering = ['-id']
